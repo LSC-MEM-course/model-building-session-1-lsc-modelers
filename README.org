@@ -1,0 +1,21 @@
+* MEM Workshop Group Session
+
+This is a (mostly) empty repo to be used as a simple template for
+working as a group in sessions of the LSC MEM course/workshop.  Some
+guidelines/suggestions:
+
+  - Pull this repo at the beginning of a session to use as your
+    personal notes.
+  - Create new files/folders to represent your notes, to avoid any
+    pull/push merge conflicts.
+  - Copy files over from other repos (like the "individual assignment"
+    files for the week) as needed or as convenient.
+  - *When you have something to share*:
+    1. Commit the local changes you want to share
+    2. Double-check that you don't have any uncommitted changes on
+       files that other people have changed
+    3. Pull changes
+    4. Push your changes to be shared with the group
+
+Happy modeling!
+
