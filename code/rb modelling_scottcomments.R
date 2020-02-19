@@ -12,7 +12,7 @@ library(AICcmodavg)
 # load adaptation data
 # setwd("U:\\sgsalant\\Lab Share\\RB folder\\Dissertation\\Data") #set working directory
 
-adapt = read.csv('adapt.csv')
+adapt = read.csv('data/adapt.csv')
 
 adapt$PresentationOrder = factor(adapt$PresentationOrder, levels = c("First", "Second", "Third", "Fourth", "Fifth"))
 
@@ -109,6 +109,7 @@ adapt[, paste("ot", 1:4, sep="")] = t[adapt$Block, 1:4]
 #                      glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun=50000)), REML = F)
 ggplot(adapt, aes(PercentCorrect)) + geom_histogram()
 
+windows()
 ggplot(adapt, aes(x = Block)) +
     geom_line(aes(y = ot1), linetype = 1) +
     geom_line(aes(y = ot2), linetype = 2) +
@@ -153,9 +154,9 @@ glm_fit1 <- glmer(cbind(Mean.Response.RESP, Mean.PossibleKeywords - Mean.Respons
                   control = glmerControl(optimizer = "bobyqa"))
 summary(glm_fit1, corr = FALSE)
 
-load('model1217.RData')
-load('model1217a.RData')
-load('model1217a2.RData')
+load('saved_models/model1217.RData')
+load('saved_models/model1217a.RData')
+load('saved_models/model1217a2.RData')
 
 anova(model.1217, model.1217a, model.1217a2) #model.1217a is preferable
 

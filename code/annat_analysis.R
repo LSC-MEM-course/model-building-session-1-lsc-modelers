@@ -7,8 +7,8 @@ library(arm)
 library(readxl)
 library(fastDummies)
 
-data_avg <- read_excel("Averages.xlsx", sheet = 1)
-data_trials <- read_excel("Trial by Trial (1).xlsx", sheet = 1)
+data_avg <- read_excel("data/Averages.xlsx", sheet = 1)
+data_trials <- read_excel("data/Trial by Trial.xlsx", sheet = 1)
 
 # data_trials %>% group_by(Pt) %>% summarize(PC = mean(`AO PC`),
 #                                            mean_ACC = mean(ST_ACC, na.rm = TRUE))
@@ -27,6 +27,7 @@ cell_means <- data_trials %>%
 ggplot(data_trials, aes(Condition_cat, PC)) + geom_boxplot() + facet_wrap(~ Group)
 windows()
 ggplot(cell_means, aes(Condition_cat, mean_PC)) + geom_bar(stat = "identity") + facet_wrap(~ Group)
+windows()
 ggplot(data_trials, aes(PC)) + geom_bar() +
     facet_grid(Group ~ Condition_cat)
 
@@ -65,6 +66,14 @@ glmer_fit1b <- glmer(cbind(Keywords, n_responses - Keywords) ~
                      family = "binomial")
 summary(glmer_fit1b, corr = FALSE)
 
+glmer_fit1b_covar <- glmer(cbind(Keywords, n_responses - Keywords) ~
+                         Condition_cat + Age + `AO PC` + 
+                         (1|Pt) + (1|Item),
+                     data = data_trials,
+                     family = "binomial")
+summary(glmer_fit1b_covar, corr = FALSE)
+
+
 glmer_fit2b <- glmer(cbind(Keywords, n_responses - Keywords) ~
                          Condition_cat + Group + (1|Pt) + (1|Item),
                      data = data_trials,
@@ -80,7 +89,7 @@ summary(glmer_fit3b, corr = FALSE)
 anova(glmer_fit2b, glmer_fit3b)
 
 glmer_fit3c <- glmer(cbind(Keywords, n_responses - Keywords) ~
-                         Condition_cat * Group + (1 + Condition_cat|Pt) + (1|Item),
+                         Condition_cat * Group + (1 + Condition_cat||Pt) + (1|Item),
                      data = data_trials,
                      family = "binomial")
 summary(glmer_fit3c, corr = FALSE)
@@ -119,7 +128,8 @@ glmer_fit3d <- glmer(cbind(Keywords, n_responses - Keywords) ~
                           Condition_5 + Condition_6|Pt) + (1|Item),
                      data = data_trials,
                      family = "binomial",
-                     control = glmerControl(optimizer = "bobyqa"))
+                     control = glmerControl(optimizer = "bobyqa",
+                                            optCtrl = list(maxfun = 12000)))
 
 summary(glmer_fit3d, corr = FALSE)
 pca_fit3d <- rePCA(glmer_fit3d)
