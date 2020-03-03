@@ -3,16 +3,17 @@
 
 #Last updated: 1/15/2020
 
-
+library(arm)
 library(readxl)
 library(lme4)
 library(lmerTest)
-library(lmtest)
+# library(lmtest)
 library(tidyverse)
 library(reshape2)
-library(ez)
 
-setwd("U:/sgsalant/Lab Share/Julies Folder/Dissertation/Results/Experiment 2")
+# library(ez)
+
+# setwd("U:/sgsalant/Lab Share/Julies Folder/Dissertation/Results/Experiment 2")
 
 #Functions
 std.err <- function(x) {
@@ -21,16 +22,16 @@ std.err <- function(x) {
 
 
 #Import Dataset (number values only)
-s1 <- read_xlsx("Summary_Exp2.xlsx", sheet = 2)
+s1 <- read_xlsx("data/Summary_Exp2.xlsx", sheet = 2)
 names(s1)<-make.names(names(s1),unique = TRUE) 
-age.data <- read_xlsx("Demographics.xlsx", sheet = 2)
+age.data <- read_xlsx("data/Demographics.xlsx", sheet = 2)
 names(age.data)<-make.names(names(age.data),unique = TRUE) 
 s1<- left_join(s1, age.data, by = "Subject.Number")
 
 #Add NIH Uncorrected scores only
-nih.score <- read_xlsx("Assessment Scores.xlsx")
+nih.score <- read_xlsx("data/Assessment Scores.xlsx")
 names(nih.score)<-make.names(names(nih.score),unique = TRUE) 
-nih_short <- select(nih.score, Subject.Number, Inst, RawScore, Uncorrected.Standard.Score)
+nih_short <- dplyr::select(nih.score, Subject.Number, Inst, RawScore, Uncorrected.Standard.Score)
 
 #Spread data
 nih_wide <- dcast(nih_short, Subject.Number ~ Inst, value.var="Uncorrected.Standard.Score")
@@ -111,9 +112,193 @@ ggplot(mono_mean, aes(TMR, mean, fill = Condition)) +
   expand_limits(y = c(0, 1.1)) +
   theme_bw(base_size = 16)
 
-
 ggsave("Monotic_SpeechScore.jpeg")
 
+#######################################
+# Start of 2/18/20 class
+
+# 1: build small models to make sense to you as you go
+
+# 2: start with a model that (at least initially) makes
+#    sense as a model of the dependent variable
+
+# Here, the DV is called "Score"
+
+#Subset for Monotic
+mono_all <- s1_short %>%
+  filter(!(Condition >3)) %>%
+  filter(!(TMR == 3))
+
+#Factor and Leveling
+mono_all$TMR <-as.factor(mono_all$TMR)
+mono_all$Group <- as.factor(mono_all$Group)
+mono_all$Condition <- as.factor(mono_all$Condition)
+mono_all$TMR <- recode(mono_all$TMR, "1" = "0", "2" = "-5", "4" = "Quiet")
+mono_all$TMR <- relevel(mono_all$TMR, "-5", "0", "Quiet")
+mono_all$Group <- relevel(mono_all$Group, "YN", "ON")
+
+mono_all_unf <- filter(mono_all, Condition == "3")
+
+ggplot(mono_all_unf, aes(Group, Score)) + 
+  geom_boxplot(aes(fill = TMR))
+
+unique(mono_all_unf$Score)
+
+ggplot(mono_all_unf, aes(Score)) + geom_histogram()
+
+# looks pretty logistic!
+mono_all_unf.glm0 <- glm(cbind(Score*4, 4 - Score*4) ~ 1,
+                         data = mono_all_unf,
+                         family = "binomial")
+summary(mono_all_unf.glm0)                        
+
+invlogit(0.41937)
+
+# 3: sensible model has your experimental variables/design in it!
+
+mono_all_unf.glm1 <- glm(cbind(Score*4, 4 - Score*4) ~ 
+                           1 + Group,
+                         data = mono_all_unf,
+                         family = "binomial")
+summary(mono_all_unf.glm1)                        
+
+mono_all_unf.glm2 <- glm(cbind(Score*4, 4 - Score*4) ~ 
+                           1 + Group * TMR,
+                         data = mono_all_unf,
+                         family = "binomial")
+summary(mono_all_unf.glm2)                        
+
+# 4: we have a fixed effect model, great! Now let's add
+#    sensible random effects
+
+# Some rules of thumb:
+#   - "keep it maximal"
+#   - don't go nuts
+
+mono_all_unf.glmer2a <- glmer(cbind(Score*4, 4 - Score*4) ~ 
+                                1 + Group * TMR +
+                                (1 | Subject.Number) +
+                                (1 | Overall.Trial.Number.for.Subject),
+                              data = mono_all_unf,
+                              family = "binomial")
+summary(mono_all_unf.glmer2a) 
+
+mono_all_unf.glmer2a <- glmer(cbind(Score*4, 4 - Score*4) ~ 
+                                1 + Group * TMR +
+                                (1 | Subject.Number) +
+                                (1 | Overall.Trial.Number.for.Subject),
+                              data = mono_all_unf,
+                              family = "binomial")
+summary(mono_all_unf.glmer2a)
+
+# 4a: what random effects even make sense?
+
+# here: Group is between subjects, so it doesn't make sense as a subject-level random slope
+
+mono_all_unf.glmer2b <- glmer(cbind(Score*4, 4 - Score*4) ~ 
+                                1 + Group * TMR +
+                                scale(Overall.Trial.Number.for.Subject) +
+                                (1 | Subject.Number),
+                              data = mono_all_unf,
+                              family = "binomial")
+summary(mono_all_unf.glmer2b)
+
+
+mono_all_unf.glmer2c <- glmer(cbind(Score*4, 4 - Score*4) ~ 
+                                1 + Group * TMR +
+                                scale(Overall.Trial.Number.for.Subject) +
+                                (1 | Subject.Number) +
+                                (1 | Target.Talker) +
+                                (1 | Masker1.Talker),
+                              data = mono_all_unf,
+                              family = "binomial")
+summary(mono_all_unf.glmer2c)
+
+mono_all_unf.glmer2d <- glmer(cbind(Score*4, 4 - Score*4) ~ 
+                                1 + Group * TMR +
+                                scale(Overall.Trial.Number.for.Subject) +
+                                (1 | Subject.Number) +
+                                (1 | Target.Talker),
+                              data = mono_all_unf,
+                              family = "binomial")
+summary(mono_all_unf.glmer2d)
+
+AIC(mono_all_unf.glmer2c)
+AIC(mono_all_unf.glmer2d)
+
+anova(mono_all_unf.glmer2c, mono_all_unf.glmer2d)
+
+mono_all_unf.glmer2e <- glmer(cbind(Score*4, 4 - Score*4) ~ 
+                                1 + Group * TMR +
+                                scale(Overall.Trial.Number.for.Subject) +
+                                (1 + TMR | Subject.Number) +
+                                (1 | Target.Talker) +
+                                (1 | Masker1.Talker),
+                              data = mono_all_unf,
+                              family = "binomial")
+summary(mono_all_unf.glmer2e)
+
+mono_all_unf.glmer3c <- glmer(cbind(Score*4, 4 - Score*4) ~ 
+                                1 + Group * TMR +
+                                scale(Overall.Trial.Number.for.Subject) +
+                                + LSPAN +
+                                (1 | Subject.Number) +
+                                (1 | Target.Talker) +
+                                (1 | Masker1.Talker),
+                              data = mono_all_unf,
+                              family = "binomial",
+                              glmerControl(optimizer = "bobyqa"))
+summary(mono_all_unf.glmer3c)
+
+mono_all_unf.glmer3e <- glmer(cbind(Score*4, 4 - Score*4) ~ 
+                                1 + Group * TMR +
+                                scale(Overall.Trial.Number.for.Subject) +
+                                + LSPAN +
+                                (1 + TMR | Subject.Number) +
+                                (1 | Target.Talker) +
+                                (1 | Masker1.Talker),
+                              data = mono_all_unf,
+                              family = "binomial",
+                              glmerControl(optimizer = "bobyqa"))
+summary(mono_all_unf.glmer3e)
+
+mono_all <- mono_all %>% mutate(Condition = relevel(Condition, "3"))
+
+mono_all.glmer3e <- glmer(cbind(Score*4, 4 - Score*4) ~ 
+                                1 + Group * TMR +
+                                scale(Overall.Trial.Number.for.Subject) +
+                                LSPAN + 
+                                (1 + TMR | Subject.Number) +
+                                (1 | Target.Talker) +
+                                (1 | Masker1.Talker),
+                              data = mono_all,
+                              family = "binomial",
+                              glmerControl(optimizer = "bobyqa"))
+summary(mono_all.glmer3e)
+
+mono_all.glmer4e <- glmer(cbind(Score*4, 4 - Score*4) ~ 
+                            1 + Group * TMR * Condition +
+                            scale(Overall.Trial.Number.for.Subject) +
+                            LSPAN + 
+                            (1 + TMR | Subject.Number) +
+                            (1 | Target.Talker) +
+                            (1 | Masker1.Talker),
+                          data = mono_all,
+                          family = "binomial",
+                          glmerControl(optimizer = "bobyqa"))
+summary(mono_all.glmer4e)
+
+mono_all.glmer4e <- glmer(cbind(Score*4, 4 - Score*4) ~ 
+                            1 + Group * TMR * Condition +
+                            scale(Overall.Trial.Number.for.Subject) +
+                            LSPAN + 
+                            (1 + TMR * Condition | Subject.Number) +
+                            (1 | Target.Talker) +
+                            (1 | Masker1.Talker),
+                          data = mono_all,
+                          family = "binomial",
+                          glmerControl(optimizer = "bobyqa"))
+summary(mono_all.glmer4e)
 ################## MONOTIC Conditions - Talker ID #####################
 
 
