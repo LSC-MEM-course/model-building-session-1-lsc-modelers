@@ -313,6 +313,96 @@ tw_AG_Tev<- tw_AG_T %>%
 tw_AG_Tk<- tw_AG_T %>%
   filter(!is.na(KBIT_SS))
 
+### starting some class modeling here
+cdata <- d_t_etr_p
+head(cdata) %>% as.data.frame()
+xtabs(~ cond, cdata)
+
+cdata_sub <- mutate(cdata, 
+                look_to_target = as.numeric(target_aoi)) %>%
+  group_by(trial, ParticipantID) %>% 
+  mutate(yprev = lag(look_to_target)) %>% ungroup() %>%
+  filter(ParticipantID %in% unique(cdata$ParticipantID)[25:34]) %>%
+  filter(!is.na(yprev))
+
+glm0 <- glm(look_to_target ~ 1,
+            family = "binomial", data = cdata_sub)
+summary(glm0)
+
+glm1 <- glm(look_to_target ~ 1 + yprev + cond,
+            family = "binomial", data = cdata_sub)
+summary(glm1)
+
+
+
+# jump to collapsed data
+colldata <- tw_AG_T %>% 
+  mutate(PPVT_scaled = as.numeric(scale(PPVT_GSV_C)))
+
+glm0 <- glm(cbind(SamplesInAOI, SamplesTotal - SamplesInAOI) ~
+              1,
+            family = "binomial", data = colldata)
+summary(glm0)
+
+glm1 <- glm(cbind(SamplesInAOI, SamplesTotal - SamplesInAOI) ~
+               1 + cond_clean * Group,
+             family = "binomial", data = colldata)
+summary(glm1)
+
+glm2 <- glm(cbind(SamplesInAOI, SamplesTotal - SamplesInAOI) ~
+              1 + cond_clean * Group * PPVT_scaled,
+            family = "binomial", data = colldata)
+summary(glm2)
+summary(colldata$PPVT_GSV_C)
+
+glmer2_a <- 
+  glmer(cbind(SamplesInAOI, SamplesTotal - SamplesInAOI) ~
+          1 + cond_clean * Group * PPVT_scaled + 
+          (1 | ParticipantID) +
+          (1 | setid),
+          family = "binomial", data = colldata)
+summary(glmer2_a, corr = FALSE)
+
+AIC(glm2)
+AIC(glmer2_a)
+
+glmer2_a <- 
+  glmer(cbind(SamplesInAOI, SamplesTotal - SamplesInAOI) ~
+          1 + cond_clean * Group * PPVT_scaled + 
+          (1 | ParticipantID) +
+          (1 | setid),
+        family = "binomial", data = colldata)
+summary(glmer2_a, corr = FALSE)
+
+glmer2_b <- 
+  glmer(cbind(SamplesInAOI, SamplesTotal - SamplesInAOI) ~
+          1 + cond_clean * Group * PPVT_scaled + 
+          (1 + cond_clean | ParticipantID) +
+          (1 | setid),
+        family = "binomial", data = colldata)
+summary(glmer2_b, corr = FALSE)
+
+glmer2_c <- 
+  glmer(cbind(SamplesInAOI, SamplesTotal - SamplesInAOI) ~
+          1 + cond_clean * Group * PPVT_scaled + 
+          (1 | ParticipantID) +
+          (1 + cond_clean * Group * PPVT_scaled | setid),
+        family = "binomial", data = colldata,
+        control = glmerControl(optimizer = "bobyqa",
+                               optCtrl = list(maxfun = 50000)))
+summary(glmer2_c, corr = FALSE)
+
+glmer2_d <- 
+  glmer(cbind(SamplesInAOI, SamplesTotal - SamplesInAOI) ~
+          1 + cond_clean * Group * PPVT_scaled + 
+          (1 + cond_clean | ParticipantID) +
+          (1 + cond_clean * Group * PPVT_scaled | setid),
+        family = "binomial", data = colldata,
+        control = glmerControl(optimizer = "bobyqa",
+                               optCtrl = list(maxfun = 50000)))
+summary(glmer2_d, corr = FALSE)
+
+
 # Base model
 lmb <- lmer(Elog ~ cond_clean +  (1 | setid) + (1 | ParticipantID),
             data = tw_AG_T, weights = WeightsBarr,
